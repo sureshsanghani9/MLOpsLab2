@@ -3,16 +3,21 @@ from sklearn import datasets, svm, metrics
 from sklearn.model_selection import train_test_split
 import pandas as pd
 from skimage.transform import rescale, resize, downscale_local_mean
+from sklearn.tree import DecisionTreeClassifier
 import numpy as np
-
 
 digits = datasets.load_digits()
 
-def run_with_hyperparameters(imgs, target, res):
+def run_with_hyperparameters(imgs, target, clf_name, iteraction):
     gamma_lst = [0.02, 0.007, 0.003, 0.0009, 0.0001, 0.0006]
     c_lst = [0.1, 0.3, 0.8, 0.7, 2, 0.4] 
 
-    h_params = [{'gamma':g, 'C':c} for g in gamma_lst for c in c_lst]
+    h_params = []
+    
+    if clf_name == 'SVM':
+        h_params = [{'gamma':g, 'C':c} for g,c in zip(gamma_lst,c_lst)]
+    else:
+        h_params = [{'max_depth': m} for m in [None, 3, 4, 5, 6, 8]]
 
     train_f = 0.8
     test_f = 0.1
@@ -40,8 +45,13 @@ def run_with_hyperparameters(imgs, target, res):
 
     h_param_results = []
     for cur_h_params in h_params:
-
-        clf = svm.SVC()
+        clf, hyper_params = None, None
+        
+        if clf_name == 'SVM':
+            clf = svm.SVC()
+        else:
+            clf = DecisionTreeClassifier()
+        
 
         hyper_params = cur_h_params
         clf.set_params(**hyper_params)
@@ -56,7 +66,11 @@ def run_with_hyperparameters(imgs, target, res):
         cur_train_acc = metrics.accuracy_score(y_pred=predicted_train, y_true=y_train)
         cur_test_acc = metrics.accuracy_score(y_pred=predicted_test, y_true=y_test)
 
-        h_param_results.append([hyper_params['gamma'], hyper_params['C'], cur_acc, cur_train_acc, cur_test_acc])
+        if clf_name == 'SVM':
+            h_param_results.append([hyper_params['gamma'], hyper_params['C'], cur_acc, cur_train_acc, cur_test_acc])
+        else:
+            h_param_results.append([hyper_params['max_depth'], cur_acc, cur_train_acc, cur_test_acc])
+            
         if cur_acc > best_accuracy:
             best_accuracy = cur_acc
             best_dev_accuracy = cur_acc
@@ -65,62 +79,73 @@ def run_with_hyperparameters(imgs, target, res):
             best_model = clf
             best_h_params = cur_h_params
 
-    df_h_param_results = pd.DataFrame(h_param_results, columns =['Gamma', 'C', 'Dev_Accuracy', 'Train_Accuracy', 'Test_Accuracy'])
-    print("\n================================Hyperparameter and Results==================================================")
+    if clf_name == 'SVM':
+        df_h_param_results = pd.DataFrame(h_param_results, columns =['Gamma', 'C', 'Dev_Accuracy', 'Train_Accuracy', 'Test_Accuracy'])
+    else:
+        df_h_param_results = pd.DataFrame(h_param_results, columns =['Max_Depth', 'Dev_Accuracy', 'Train_Accuracy', 'Test_Accuracy'])
+    
+    print(f"\n===================Hyperparameter and Results for {clf_name} for iteration {str(iteraction)}=======================")
     print(df_h_param_results.head(10))
 
     predicted = best_model.predict(X_test)
 
+    """
     print("\n")    
     print("\n================================Report=====================================================================")
     print(
-        f"Classification report for classifier {best_model}:\n"
-        f"{metrics.classification_report(y_test, predicted)}\n"
-    )
-
-    print("\n") 
-    print("\n================================Best hyperparameters and Accuracy===========================================")
-    print("Best C:" + str(best_h_params['C']) + " and Gamma:" + str(best_h_params['gamma']) )
-    print("Best Dev Accuracy:" + str(best_dev_accuracy))
-    print("Best Train Accuracy:" + str(best_train_accuracy))
-    print("Best Test Accuracy:" + str(best_test_accuracy))
-
-    print("\n") 
-    print("\n================================Predicted Images=============================================================")
-    _, axes = plt.subplots(nrows=1, ncols=4, figsize=(10, 3))
-    for ax, image, prediction in zip(axes, X_test, predicted):
-        ax.set_axis_off()
-        image = image.reshape(res, res)
-        ax.imshow(image, cmap=plt.cm.gray_r, interpolation="nearest")
-        ax.set_title(f"Prediction: {prediction}")
-        
-
-run_with_hyperparameters(digits.images, digits.target, res=8)
-
-
-def resize_images(res, imgs):
-    print("\n================================Current Image size=============================================================")
-    print("Current Image size: " + str(digits.images[0].shape))
-    print("\n================================New Image size=============================================================")
-    print("Image Resolution: " + '(' + str(res) + ',' + str(res) + ')')
-    arr = []
-    for im in imgs:
-        image_resized = resize(im, (res, res), anti_aliasing=True)
-        arr.append(image_resized)
-    return np.array(arr)
+        f"Classification report for {clf_name} classifier {best_model}:\n"
+        f"{metrics.classification_report(y_test, predicted)}\n")
+    """
     
+    print(f"\n===============Best hyperparameters and Accuracy for {clf_name} for iteration {str(iteraction)}====================")
+    if clf_name == 'SVM':
+        print("Best C:\t\t\t\t\t" + str(best_h_params['C']) + " and Gamma:" + str(best_h_params['gamma']) )
+    else:
+        print("Best Max_Depth:\t\t\t\t" + str(best_h_params['max_depth']))
+        
+    print("Best Dev Accuracy:\t\t\t" + str(best_dev_accuracy))
+    print("Best Train Accuracy:\t\t\t" + str(best_train_accuracy))
+    print("Best Test Accuracy:\t\t\t" + str(best_test_accuracy))
 
-#new resolution 6*6
-res = 6
-run_with_hyperparameters(resize_images(res,digits.images), digits.target, res)
+    no_of_correct_pred = len([k for k, (a, b) in enumerate(zip(y_test, predicted)) if a == b])
+    print("Best No of Correct Prediction:\t\t" + str(no_of_correct_pred))
+    print("\n") 
+    
+    return best_test_accuracy, no_of_correct_pred
 
 
-#new resolution 12*12
-res = 12
-run_with_hyperparameters(resize_images(res,digits.images), digits.target, res)
+t = 5
+SVM_accu = []
+DT_accu = []
+SVM_correct_count = []
+DT_correct_count = []
+
+for i in range(0,t):
+    acc, cc = run_with_hyperparameters(digits.images, digits.target, 'SVM', i)
+    SVM_accu.append(acc)
+    SVM_correct_count.append(cc)
+
+for i in range(0,t):
+    acc, cc = run_with_hyperparameters(digits.images, digits.target, 'Decision Tree', i)
+    DT_accu.append(acc)
+    DT_correct_count.append(cc)
+
+print("\n================================SVM vs Decision Tree Accuracy comparision===================================")
+print("\nRun\t\t\tSVM\t\t\tDecision Tree")
+for i in range(0,t):
+    print(f"\n{str(i)}:\t\t\t{str(round(SVM_accu[i],4))}\t\t\t{str(round(DT_accu[i],4))}")
+    
+print(f"\nMean:\t\t\t{str(round(np.mean(SVM_accu),4))}\t\t\t{str(round(np.mean(DT_accu),4))}")
+                      
+print(f"\nSD:\t\t\t{str(round(np.std(SVM_accu),4))}\t\t\t{str(round(np.std(DT_accu),4))}")
 
 
-
-#new resolution 18*18
-res = 18
-run_with_hyperparameters(resize_images(res,digits.images), digits.target, res)
+print("\n")
+print("\n======================SVM vs Decision Tree Number of currect prediction comparision========================")
+print("\nRun\t\t\tSVM\t\t\tDecision Tree")
+for i in range(0,t):
+    print(f"\n{str(i)}:\t\t\t{str(round(SVM_correct_count[i],4))}\t\t\t{str(round(DT_correct_count[i],4))}")
+    
+print(f"\nMean:\t\t\t{str(round(np.mean(SVM_correct_count),4))}\t\t\t{str(round(np.mean(DT_correct_count),4))}")
+                      
+print(f"\nSD:\t\t\t{str(round(np.std(SVM_correct_count),4))}\t\t\t{str(round(np.std(DT_correct_count),4))}")
