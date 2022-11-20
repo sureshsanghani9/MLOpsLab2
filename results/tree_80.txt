@@ -1,0 +1,3 @@
+test accuracy: 0.7262569832402235 
+ test macro-f1: 0.748233178965737 
+ model saved at ./models/max_depth=6.joblib
