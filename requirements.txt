@@ -1,2 +1,5 @@
 matplotlib
 sklearn
+pytest
+scikit-learn
+scikit-image
