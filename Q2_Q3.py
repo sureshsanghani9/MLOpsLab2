@@ -94,7 +94,7 @@ res_file = str(clf_name + '_' + str(random_state) + '.txt')
 if clf_name == 'svm':
     file_name = 'svm_gamma=' + str(g) + '_C=' + str(c) + '.joblib'
 else:
-    file_name = 'max_depth=' + str(d) + '.joblib'
+    file_name = 'tree_max_depth=' + str(d) + '.joblib'
 
 file_cont = "test accuracy: " + str(test_acc) + " \n test macro-f1: "+ str(test_macro) +" \n model saved at ./models/"+ file_name +""
 
